@@ -1,0 +1,17 @@
+# 睿聘智模 v3.1 依赖包
+# 安装：pip install -r requirements.txt
+
+# ── 核心 ──────────────────────────────────
+openai>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# ── 文件解析 ──────────────────────────────
+PyMuPDF>=1.23.0       # PDF 解析（import fitz）
+python-docx>=1.1.0    # Word 文档读写（.docx）
+
+# ── PDF 生成（完整多页报告）────────────────
+reportlab>=4.0.0
+
+# ── 可选：外部访问隧道 ─────────────────────
+# 需单独安装 ngrok 客户端：https://ngrok.com/download
