@@ -15,3 +15,10 @@ logs/
 tmp
 tmp/
 *.tmp
+__pycache__/
+.env
+env/
+__pycache__/
+.idea/
+.env
+env/
