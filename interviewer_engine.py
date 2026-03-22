@@ -17,7 +17,7 @@ from io import BytesIO
 from openai import OpenAI
 
 from config import (
-    API_BASE, API_KEY, MODEL_NAME, LLM_TIMEOUT,
+    API_BASE, API_KEY, MODEL_NAME, QUESTION_MODEL_NAME, LLM_TIMEOUT,
     INTERVIEWER_NAME, INTERVIEWER_TITLE, INTERVIEWER_YEARS_EXP, INTERVIEWER_STYLE,
     SCORE_GRADES, INTERVIEW_MODES, DIMENSION_WEIGHT_REFERENCE,
     DEFAULT_MAX_FOLLOWUP_ROUNDS, DEFAULT_DEPTH_SCORE_THRESHOLD,
@@ -36,10 +36,12 @@ def get_client() -> OpenAI:
     return _client
 
 
-def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 4000) -> str:
+def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 4000,
+             model=None) -> str:
+    """统一 LLM 调用入口。model=None 时使用 config.MODEL_NAME（主模型）。"""
     try:
         r = get_client().chat.completions.create(
-            model=MODEL_NAME, messages=messages,
+            model=model or MODEL_NAME, messages=messages,
             temperature=temperature, max_tokens=max_tokens,
         )
         return r.choices[0].message.content.strip()
@@ -47,10 +49,12 @@ def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 4000) -
         return f"[LLM_ERROR] {e}"
 
 
-def call_llm_json(messages: list, temperature: float = 0.1) -> dict:
+def call_llm_json(messages: list, temperature: float = 0.1, model=None) -> dict:
+    """统一 LLM JSON 调用入口。model=None 时使用 config.MODEL_NAME（主模型）。"""
     for _ in range(3):
         try:
-            raw = call_llm(messages, temperature=temperature, max_tokens=4096)
+            raw = call_llm(messages, temperature=temperature, max_tokens=4096,
+                           model=model)
             if raw.startswith("[LLM_ERROR]"):
                 continue
             cleaned = re.sub(r'```(?:json)?\s*', '', raw)
@@ -124,13 +128,55 @@ def _mode_aggression(mode: str) -> str:
 
 
 # ── System Prompt（人格锚定）──────────────────────────────────────
-def build_system_prompt(mode: str, max_followup: int) -> str:
-    mode_name  = INTERVIEW_MODES.get(mode, {}).get("name", "标准专业")
-    mode_style = _mode_style(mode)
-    return f"""你是{INTERVIEWER_NAME}，拥有{INTERVIEWER_YEARS_EXP}年经验的{INTERVIEWER_TITLE}，业内以"{INTERVIEWER_STYLE}"著称。
-当前采用【{mode_name}】面试模式。
+def _mode_opening_tone(mode: str) -> str:
+    return INTERVIEW_MODES.get(mode, INTERVIEW_MODES["standard"]).get("opening_tone", "")
 
-━━━━━━━━ 核心评估方法论 ━━━━━━━━
+def _mode_followup_style(mode: str) -> str:
+    return INTERVIEW_MODES.get(mode, INTERVIEW_MODES["standard"]).get("followup_style", "")
+
+def _mode_transition_style(mode: str) -> str:
+    return INTERVIEW_MODES.get(mode, INTERVIEW_MODES["standard"]).get("transition_style", "")
+
+
+def build_system_prompt(mode: str, max_followup: int) -> str:
+    mode_cfg   = INTERVIEW_MODES.get(mode, INTERVIEW_MODES["standard"])
+    mode_name  = mode_cfg.get("name", "标准专业")
+    style      = mode_cfg.get("style_prompt", "")
+    aggression = mode_cfg.get("followup_aggression", "moderate")
+
+    # 全局铁则根据模式激进程度动态调整措辞
+    if aggression == "high":
+        universal_rules = (
+            "· 始终第一人称「我」，绝不暴露AI身份或评分机制\n"
+            "· 【压力模式专属】全程不给候选人正向反馈，不说'好''不错''理解了'，保持审视状态\n"
+            "· 追问永远不重复原问题措辞，直接攻击回答中最薄弱的一个点\n"
+            f"· 最多追问 {max_followup} 轮，每轮必须比上一轮更精确、更直接\n"
+            "· 候选人试图转移话题时，冷静打断并拉回：「这个先放一下，我的问题是……」"
+        )
+    elif aggression == "low":
+        universal_rules = (
+            "· 始终第一人称「我」，绝不暴露AI身份或评分机制\n"
+            "· 对候选人的分享给出真实有温度的回应，像朋友间的对话\n"
+            "· 追问永远不重复原问题措辞，从候选人自然展开的方向切入\n"
+            f"· 最多追问 {max_followup} 轮，不强求STAR完整，保持对话流动感\n"
+            "· 候选人偏题时，顺势而为，从偏题内容中找有价值的信息点"
+        )
+    else:
+        universal_rules = (
+            "· 始终第一人称「我」，绝不暴露AI身份或评分机制\n"
+            "· 对候选人每段回答先有一句真实具体的回应，禁止「非常好！」「您说得对！」等空洞夸赞\n"
+            "· 追问永远不重复原问题措辞，从回答的「信息裂缝」处切入\n"
+            f"· 最多追问 {max_followup} 轮即自然推进，不执着于填满STAR模板\n"
+            "· 候选人偏题时温和引导，给完成表达的机会"
+        )
+
+    return f"""你是{INTERVIEWER_NAME}，拥有{INTERVIEWER_YEARS_EXP}年经验的{INTERVIEWER_TITLE}，业内以"{INTERVIEWER_STYLE}"著称。
+
+━━━━━━━━ 当前面试模式：【{mode_name}】━━━━━━━━
+
+{style}
+
+━━━━━━━━ 核心评估方法论（所有模式通用）━━━━━━━━
 
 ① STAR+D 结构化追问框架
    Situation（情境）：背景、规模、复杂度
@@ -143,21 +189,13 @@ def build_system_prompt(mode: str, max_followup: int) -> str:
    水面以上（显性）：技能/知识/经历 → 简历可初步验证
    水面以下（隐性）：思维方式/动机/价值观/成长潜力 → 仅面试能揭示
 
-③ Reflexion 自我反思（每次追问前必须在心里完成）
+③ Reflexion 自我反思（每次追问前必须在内心完成）
    "候选人回答的真实意图是什么？他/她回避了什么？"
-   "我的问题是否造成歧义？追问最有价值的切入点是哪个STAR要素？"
+   "追问最有价值的切入点是哪个STAR要素？"
 
-━━━━━━━━ 当前模式风格要求 ━━━━━━━━
+━━━━━━━━ 【{mode_name}】模式对话铁则 ━━━━━━━━
 
-{mode_style}
-
-━━━━━━━━ 对话铁则 ━━━━━━━━
-
-· 始终第一人称"我"，绝不暴露AI身份、评分机制
-· 对候选人每段回答先有一句真实具体的回应，禁止"非常好！""您说得对！"等空洞夸赞
-· 追问永远不重复原问题措辞，从回答"信息裂缝"处切入
-· 最多追问 {max_followup} 轮即自然推进，不执着于填满STAR模板
-· 候选人偏题时温和引导，给完成表达的机会
+{universal_rules}
 """
 
 
@@ -438,35 +476,61 @@ def prompt_generate_followup(original_q: str, answer: str, evaluation: dict,
     concerns = evaluation.get("iceberg_analysis", {}).get("concerns", [])
     is_last  = (followup_round + 1 >= max_followup)
     aggr     = _mode_aggression(mode)
-    aggr_inst = {"low":"语气轻松温和，用开放引导",
-                 "moderate":"语气专业自然，像朋友间深度交流",
-                 "high":"语气直接，可直接指出回答不足，甚至提出反驳，测试思维清晰度"}.get(aggr,"")
+    followup_style = _mode_followup_style(mode)
+
+    # 根据激进程度生成不同的执行指令
+    if aggr == "high":
+        exec_instruction = (
+            f"【执行指令——压力模式，必须严格遵守】\n"
+            f"你正处于压力测试面试中，全程不得软化语气。\n"
+            f"核心任务：直接攻击候选人回答中「{focus}」这个最薄弱点。\n"
+            f"{'这是最后一次追问机会，必须逼出一个明确答案，不接受模糊回应。' if is_last else f'这是第{followup_round+1}轮追问，比上一轮更精确、更直接。'}\n\n"
+            f"输出格式：\n"
+            f"① 0-1句极简回应（可以是沉默式压力：'嗯。''就这些？'，或直接质疑：'这个数字怎么来的？'）\n"
+            f"② 1-2句直接质疑或反驳，针对「{focus}」，不得用「能详细说说吗」这类软语气\n"
+            f"整体不超过70字，语气冷静、直接、不留情面。"
+        )
+    elif aggr == "low":
+        exec_instruction = (
+            f"【执行指令——轻松模式】\n"
+            f"核心任务：温和引导候选人展开「{focus}」这个方向。\n"
+            f"{'这是最后一次追问，用开放式问题让候选人自然补充最重要的细节。' if is_last else '语气保持轻松，像朋友间的好奇追问。'}\n\n"
+            f"输出格式：\n"
+            f"① 1句真实有温度的回应（从候选人刚才说的某个具体词出发）\n"
+            f"② 1句开放式引导，针对「{focus}」\n"
+            f"整体不超过80字，口语化，自然流畅。"
+        )
+    else:
+        exec_instruction = (
+            f"【执行指令——标准模式】\n"
+            f"核心任务：精准追问「{focus}」这个最薄弱点。\n"
+            f"{'这是最后一次追问，确认最关键的疑点。' if is_last else f'第{followup_round+1}轮追问，比上一轮更具体。'}\n\n"
+            f"输出格式：\n"
+            f"① 1句具体回应（从候选人刚才说的具体内容出发，禁止空洞夸赞）\n"
+            f"② 1-2句精准追问，针对「{focus}」，使用引导语切入\n"
+            f"整体不超过90字，不要任何标签/换行/前缀。"
+        )
 
     return f"""你是{INTERVIEWER_NAME}，正在面试追问环节。你已完成Reflexion内部反思，现在输出追问话语。
 
-【内部反思结论（勿输出）】
+【内部反思数据（仅供参考，勿输出）】
 原始问题：{original_q}
-候选人回答摘要：{answer[:500]}
+候选人回答：{answer[:500]}
 STAR缺失要素：{', '.join(missing) if missing else '无'}
 STAR质量偏低要素：{', '.join(weak) if weak else '无'}
 追问核心原因：{reason}
-最有价值追问切入点：{focus}
+最有价值切入点：{focus}
 可疑信号：{'; '.join(concerns) if concerns else '无'}
-第{followup_round+1}轮追问 | 是否是最后机会：{"是" if is_last else "否"}
 
 【近期对话上下文】
 {context}
 
-【当前模式追问要求】
-{aggr_inst}
-{"最后一次追问：核心是确认最关键的疑点，可以更直接" if is_last else ""}
+【当前模式追问规范】
+{followup_style}
 
-【生成规则】
-① 1句真实具体的回应（禁止空洞夸赞）
-② 1-2句针对"{focus}"的精准追问，使用引导语切入
-③ 整体不超过90字，不要任何标签/换行/前缀
+{exec_instruction}
 
-直接输出追问内容：
+直接输出追问内容（不要任何前缀或解释）：
 """
 
 
@@ -474,7 +538,26 @@ STAR质量偏低要素：{', '.join(weak) if weak else '无'}
 def prompt_transition_question(next_q_info: dict, last_answer: str,
                                 context: str, done_q: int, total_q: int,
                                 mode: str) -> str:
-    return f"""你是{INTERVIEWER_NAME}，刚结束一道题，需要自然地过渡到下一个问题。
+    aggr = _mode_aggression(mode)
+    transition_style = _mode_transition_style(mode)
+
+    if aggr == "high":
+        format_rule = (
+            "直接切换，不做情感过渡。可以只说'好，下一个问题'然后直接提问。"
+            "整体不超过80字，不要任何暖场或过渡性情感表达，保持压迫节奏。"
+        )
+    elif aggr == "low":
+        format_rule = (
+            "用一两句轻松自然的话过渡，从候选人刚才说的某个有趣点切入下一题。"
+            "整体不超过130字，口语化，让候选人感到对话是连贯流动的。"
+        )
+    else:
+        format_rule = (
+            "先1-2句自然过渡（从候选人刚才某个具体词或观点作为桥梁），再直接提出下一个问题。"
+            "整体不超过130字，不要出现'现在进入下一个环节''接下来'等机械语。"
+        )
+
+    return f"""你是{INTERVIEWER_NAME}，刚结束一道题，需要过渡到下一个问题。
 
 【候选人最后一段回答】
 {last_answer[:400]}
@@ -484,18 +567,17 @@ def prompt_transition_question(next_q_info: dict, last_answer: str,
 
 【面试进度】已完成{done_q}题 / 共{total_q}题
 
-【下一个问题】{next_q_info.get('question_text','')}
-【预设过渡方向（仅参考）】{next_q_info.get('transition','')}
+【下一个问题原文】{next_q_info.get('question_text','')}
+【预设过渡参考（可灵活处理）】{next_q_info.get('transition','')}
 
-【当前模式风格】
-{_mode_style(mode)}
+【当前模式过渡规范】
+{transition_style}
 
-请生成"过渡+提问"话语：
-① 1-2句自然过渡（从候选人刚才某个词/观点作为桥梁，或维度切换引导）
-②直接提出下一个问题（保持原意，可调整措辞使其更自然） 
-整体不超过130字，不要出现"现在进入下一个环节"等机械语，也不要展现出来你的内心活动
+【格式要求】
+{format_rule}
+不要展现任何内心活动或分析过程，直接输出说话内容。
 
-直接输出话语（无标签）：
+直接输出话语（无任何标签）：
 """
 
 
@@ -731,7 +813,8 @@ class InterviewerEngine:
                 self.position_type, self.seniority,
                 self.key_competencies, self.red_flags, self.q_allocation)},
         ]
-        self.plan = call_llm_json(msgs, temperature=0.2)
+        # ★ 题目生成使用专用模型 QUESTION_MODEL_NAME（gpt-5.4）
+        self.plan = call_llm_json(msgs, temperature=0.2, model=QUESTION_MODEL_NAME)
         if not self.plan or "dimensions" not in self.plan:
             self.plan = self._default_plan()
 
@@ -763,7 +846,13 @@ class InterviewerEngine:
         if idx == 0:
             opening = self.plan.get("opening_greeting",
                                     f"您好！我是{INTERVIEWER_NAME}，今天由我来主持面试，我们开始吧？")
-            display = opening + "\n\n" + q_text
+            # 压力模式开场：精简，去掉暖场语，直接切题
+            aggr = _mode_aggression(self.interview_mode)
+            if aggr == "high":
+                # 保留 opening 中的第一句介绍，但去掉寒暄，直接接题
+                display = f"{INTERVIEWER_NAME}，今天由我来面试。直接开始。\n\n{q_text}"
+            else:
+                display = opening + "\n\n" + q_text
         else:
             msgs = [
                 {"role": "system", "content": self.system_prompt},
@@ -771,7 +860,9 @@ class InterviewerEngine:
                     qi, self.last_answer, self._context_summary(8),
                     idx, len(self.all_questions), self.interview_mode)},
             ]
-            display = call_llm(msgs, temperature=0.75, max_tokens=350)
+            # ★ 过渡问题生成使用专用模型 QUESTION_MODEL_NAME（gpt-5.4）
+            display = call_llm(msgs, temperature=0.75, max_tokens=350,
+                               model=QUESTION_MODEL_NAME)
             if not display or display.startswith("[LLM_ERROR]"):
                 t = qi.get("transition", "")
                 display = (t + " " + q_text).strip() if t else q_text
