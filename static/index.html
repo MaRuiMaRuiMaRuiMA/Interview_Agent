@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>睿聘智模 · AI 智能面试系统</title>
+<style>
+/* ─────────────────────────────────────────────────────
+   设计系统变量
+───────────────────────────────────────────────────── */
+:root{
+  --blue:   #1a73e8;
+  --blue-d: #1558b0;
+  --blue-l: #e8f0fe;
+  --green:  #34a853;
+  --green-l:#e8f5e9;
+  --amber:  #f59e0b;
+  --amber-l:#fffbeb;
+  --red:    #ef4444;
+  --red-l:  #fef2f2;
+  --ink:    #111827;
+  --ink2:   #374151;
+  --ink3:   #6b7280;
+  --ink4:   #9ca3af;
+  --border: #e5e7eb;
+  --bg:     #f3f4f6;
+  --white:  #ffffff;
+  --shadow: 0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 16px rgba(0,0,0,.12);
+  --r:12px; --r-sm:8px; --r-xs:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,'PingFang SC','Microsoft YaHei','Segoe UI',sans-serif;
+  font-size:14px;line-height:1.6}
+input,textarea,select,button{font-family:inherit}
+a{color:var(--blue);text-decoration:none}
+textarea{resize:vertical}
+
+/* ─────────────────────────────────────────────────────
+   整体布局
+───────────────────────────────────────────────────── */
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* ─────────────────────────────────────────────────────
+   侧边栏
+───────────────────────────────────────────────────── */
+.sidebar{
+  width:240px;min-width:240px;background:var(--white);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  box-shadow:2px 0 8px rgba(0,0,0,.04)
+}
+.sb-logo{
+  padding:20px 16px 14px;
+  border-bottom:1px solid var(--border)
+}
+.sb-logo-row{display:flex;align-items:center;gap:10px}
+.sb-logo-icon{
+  width:38px;height:38px;background:var(--blue);
+  border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;flex-shrink:0
+}
+.sb-logo-text{font-weight:700;font-size:15px;line-height:1.3;color:var(--ink)}
+.sb-logo-sub{font-size:11px;color:var(--ink4);font-weight:400}
+.sb-session-info{
+  padding:8px 16px;background:var(--bg);
+  border-bottom:1px solid var(--border);
+  font-size:11px;color:var(--ink3)
+}
+.sb-session-info span{color:var(--blue);font-weight:600}
+/* Steps */
+.sb-steps{flex:1;overflow-y:auto;padding:10px 0}
+.step-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 16px;cursor:pointer;position:relative;
+  transition:background .15s
+}
+.step-item:not(:last-child)::after{
+  content:'';position:absolute;left:25px;top:38px;
+  width:2px;height:calc(100% - 18px);
+  background:var(--border);z-index:0
+}
+.step-item.done::after{background:var(--green)}
+.step-item.active::after{background:linear-gradient(var(--blue),var(--border))}
+.step-item:hover:not(.disabled){background:var(--blue-l)}
+.step-item.disabled{cursor:not-allowed;opacity:.5}
+.step-dot{
+  width:22px;height:22px;border-radius:50%;
+  border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;
+  background:var(--white);color:var(--ink4);
+  z-index:1;position:relative;flex-shrink:0;
+  transition:all .25s
+}
+.step-item.active .step-dot{border-color:var(--blue);background:var(--blue);color:var(--white)}
+.step-item.done .step-dot{border-color:var(--green);background:var(--green);color:var(--white)}
+.step-info{flex:1;padding-top:1px}
+.step-title{font-size:12px;font-weight:600;color:var(--ink3)}
+.step-item.active .step-title{color:var(--blue)}
+.step-item.done .step-title{color:var(--green)}
+.step-sub{font-size:11px;color:var(--ink4);margin-top:1px}
+/* 进度条 */
+.sb-progress{
+  padding:10px 16px;border-top:1px solid var(--border);
+  background:var(--white)
+}
+.sb-progress-label{
+  display:flex;justify-content:space-between;
+  font-size:11px;color:var(--ink3);margin-bottom:5px
+}
+.sb-progress-label span{font-weight:600;color:var(--blue)}
+.pbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--green));
+  border-radius:2px;transition:width .5s ease}
+/* 操作按钮 */
+.sb-actions{padding:10px 12px;border-top:1px solid var(--border)}
+.sb-actions button{
+  width:100%;padding:8px;border:none;border-radius:var(--r-sm);
+  font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .2s;margin-bottom:6px
+}
+.sb-btn-new{background:var(--blue-l);color:var(--blue)}
+.sb-btn-new:hover{background:var(--blue);color:var(--white)}
+.sb-btn-exit{background:var(--red-l);color:var(--red)}
+.sb-btn-exit:hover{background:var(--red);color:var(--white)}
+
+/* ─────────────────────────────────────────────────────
+   主内容区
+───────────────────────────────────────────────────── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.panel{display:none;flex:1;flex-direction:column;animation:fadeIn .25s ease}
+.panel.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Panel Header */
+.ph{padding:20px 28px 0;flex-shrink:0}
+.ph h2{font-size:20px;font-weight:700;color:var(--ink)}
+.ph p{color:var(--ink3);margin-top:3px;font-size:13px}
+/* Panel Body */
+.pb{flex:1;padding:18px 28px 28px;overflow-y:auto}
+
+/* ─────────────────────────────────────────────────────
+   卡片 / 表单
+───────────────────────────────────────────────────── */
+.card{
+  background:var(--white);border-radius:var(--r);
+  box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden
+}
+.card-h{
+  padding:12px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px
+}
+.card-h h3{font-size:14px;font-weight:700;color:var(--ink2)}
+.card-h .card-icon{font-size:16px}
+.card-b{padding:18px}
+/* 信息提示条 */
+.info-bar{
+  background:var(--blue-l);border-left:3px solid var(--blue);
+  border-radius:0 var(--r-xs) var(--r-xs) 0;
+  padding:10px 14px;font-size:12px;color:var(--ink2);
+  margin-bottom:14px;line-height:1.6
+}
+.warn-bar{background:var(--amber-l);border-left-color:var(--amber)}
+/* 输入 */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;
+  color:var(--ink3);margin-bottom:5px}
+.textarea{
+  width:100%;padding:10px 12px;border:1.5px solid var(--border);
+  border-radius:var(--r-sm);font-size:13px;color:var(--ink);
+  transition:border-color .2s;background:var(--white);
+  min-height:120px
+}
+.textarea:focus{border-color:var(--blue);outline:none}
+.char-count{
+  text-align:right;font-size:11px;
+  color:var(--ink4);margin-top:3px
+}
+/* 按钮 */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:var(--r-sm);border:none;
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .18s;line-height:1
+}
+.btn-primary{background:var(--blue);color:var(--white)}
+.btn-primary:hover{background:var(--blue-d)}
+.btn-primary:disabled{background:var(--ink4);cursor:not-allowed}
+.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue)}
+.btn-outline:hover{background:var(--blue-l)}
+.btn-ghost{background:var(--bg);color:var(--ink2);border:1.5px solid var(--border)}
+.btn-ghost:hover{background:var(--border)}
+.btn-success{background:var(--green);color:var(--white)}
+.btn-success:hover{filter:brightness(.92)}
+.btn-danger{background:var(--red);color:var(--white)}
+.btn-danger:hover{filter:brightness(.9)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* ─────────────────────────────────────────────────────
+   设置页
+───────────────────────────────────────────────────── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.setting-card{
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--r-sm);padding:14px;cursor:pointer;
+  transition:all .2s
+}
+.setting-card:hover,.setting-card.selected{
+  border-color:var(--blue);background:var(--blue-l)
+}
+.setting-card .sc-title{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--ink)}
+.setting-card .sc-desc{font-size:11px;color:var(--ink3)}
+.setting-card.selected .sc-title{color:var(--blue)}
+.select-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.select-row label{font-size:12px;font-weight:600;color:var(--ink3);min-width:80px}
+.select{
+  padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  font-size:13px;color:var(--ink);background:var(--white);cursor:pointer;
+  transition:border-color .2s;flex:1
+}
+.select:focus{border-color:var(--blue);outline:none}
+
+/* ─────────────────────────────────────────────────────
+   上传区
+───────────────────────────────────────────────────── */
+.tab-bar{
+  display:flex;gap:3px;background:var(--bg);padding:3px;
+  border-radius:var(--r-sm);width:fit-content;margin-bottom:12px
+}
+.tab-btn{
+  padding:6px 14px;border-radius:var(--r-xs);border:none;
+  background:transparent;font-size:12px;font-weight:600;
+  color:var(--ink3);cursor:pointer;transition:all .15s
+}
+.tab-btn.active{background:var(--white);color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.drop-zone{
+  border:2px dashed var(--border);border-radius:var(--r);
+  padding:28px 20px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--bg)
+}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--blue);background:var(--blue-l)}
+.drop-icon{font-size:36px;margin-bottom:8px}
+.drop-text{font-size:14px;font-weight:600;color:var(--ink3);margin-bottom:3px}
+.drop-hint{font-size:11px;color:var(--ink4)}
+.file-badge{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;background:var(--blue-l);
+  border-radius:var(--r-sm);margin-top:10px
+}
+.file-badge .fb-icon{font-size:22px}
+.file-badge .fb-info{flex:1}
+.file-badge .fb-name{font-weight:600;font-size:13px;color:var(--blue)}
+.file-badge .fb-size{font-size:11px;color:var(--ink3)}
+.parse-preview{
+  margin-top:10px;padding:10px;background:var(--bg);
+  border-radius:var(--r-sm);font-size:12px;color:var(--ink3);
+  max-height:120px;overflow-y:auto;line-height:1.7
+}
+
+/* ─────────────────────────────────────────────────────
+   分析结果区
+───────────────────────────────────────────────────── */
+.match-row{display:flex;align-items:center;gap:12px}
+.match-track{flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.match-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--green));
+  border-radius:5px;transition:width .8s ease}
+.match-pct{font-size:18px;font-weight:700;color:var(--blue);min-width:44px;text-align:right}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-blue{background:var(--blue-l);color:var(--blue)}
+.tag-amber{background:var(--amber-l);color:#b45309}
+.tag-green{background:var(--green-l);color:#166534}
+.dim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
+.dim-tile{background:var(--bg);border-radius:var(--r-sm);padding:12px;border:1px solid var(--border)}
+.dim-tile .dt-name{font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:4px}
+.dim-tile .dt-weight{font-size:22px;font-weight:800;color:var(--blue)}
+.dim-tile .dt-bar{height:5px;background:var(--border);border-radius:3px;margin:5px 0;overflow:hidden}
+.dim-tile .dt-fill{height:100%;background:var(--blue);border-radius:3px}
+.dim-tile .dt-q{font-size:11px;color:var(--ink4)}
+
+/* ─────────────────────────────────────────────────────
+   面试聊天区
+───────────────────────────────────────────────────── */
+#panel4{padding:0}
+.chat-layout{display:flex;flex-direction:column;height:100%}
+.chat-topbar{
+  padding:12px 20px;background:var(--white);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;
+  flex-shrink:0;flex-wrap:wrap
+}
+.chat-topbar .ctb-dim{
+  font-size:13px;font-weight:700;color:var(--ink)
+}
+.chat-topbar .ctb-prog{font-size:12px;color:var(--ink3)}
+.dim-badge{
+  background:var(--blue);color:var(--white);
+  padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700
+}
+.chat-nav-btns{margin-left:auto;display:flex;gap:6px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{animation:fadeIn .25s ease}
+.msg-i{align-self:flex-start;max-width:80%}
+.msg-c{align-self:flex-end;max-width:80%}
+.msg-sys{align-self:center;width:100%}
+.msg-label{font-size:11px;color:var(--ink4);margin-bottom:3px;padding:0 3px}
+.msg-bubble{
+  padding:11px 15px;border-radius:var(--r);
+  font-size:13px;line-height:1.75;white-space:pre-wrap
+}
+.msg-i .msg-bubble{
+  background:var(--white);border:1px solid var(--border);
+  border-top-left-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.05)
+}
+.msg-c .msg-bubble{
+  background:var(--blue);color:var(--white);
+  border-top-right-radius:3px
+}
+/* 评估卡片 */
+.eval-card{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px 16px;width:100%
+}
+.eval-card-title{font-size:11px;font-weight:700;color:var(--ink3);margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:.5px}
+.star-rows{margin-bottom:10px}
+.star-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.star-lbl{width:74px;font-size:11px;font-weight:600;color:var(--ink3)}
+.star-icon{font-size:12px;width:14px}
+.star-track{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.star-fill-bar{height:100%;border-radius:3px;transition:width .5s}
+.star-hi{background:var(--green)}
+.star-mi{background:var(--amber)}
+.star-lo{background:var(--red)}
+.star-pct-lbl{width:28px;font-size:11px;color:var(--ink4);text-align:right}
+.score-chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.score-chip{
+  flex:1;min-width:80px;text-align:center;
+  background:var(--bg);border-radius:var(--r-sm);padding:8px;
+}
+.score-chip .scv{font-size:20px;font-weight:800}
+.score-chip .sct{font-size:12px;color:var(--ink4)}
+.score-chip .scl{font-size:10px;color:var(--ink3);margin-top:1px}
+.insights-block{margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.insight-line{font-size:12px;color:var(--ink3);padding:2px 0}
+.concern-line{font-size:12px;color:var(--red);padding:2px 0}
+.report-toggle{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:600;color:var(--blue);
+  cursor:pointer;margin-top:6px;padding:3px 6px;
+  background:var(--blue-l);border-radius:var(--r-xs)
+}
+.report-box{
+  display:none;margin-top:8px;padding:10px 12px;
+  background:var(--bg);border-radius:var(--r-sm);
+  font-size:12px;line-height:1.8;color:var(--ink2);
+  white-space:pre-wrap;border-left:3px solid var(--blue)
+}
+.report-box.open{display:block}
+/* 输入区 */
+.chat-input-area{
+  border-top:1px solid var(--border);background:var(--white);
+  padding:12px 20px;flex-shrink:0
+}
+.input-hint{font-size:11px;color:var(--ink4);margin-bottom:6px}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.chat-ta{
+  flex:1;padding:10px 12px;border:1.5px solid var(--border);
+  border-radius:var(--r-sm);font-size:13px;
+  min-height:72px;max-height:220px;resize:vertical;
+  transition:border-color .2s
+}
+.chat-ta:focus{border-color:var(--blue);outline:none}
+.send-btn{
+  padding:10px 18px;background:var(--blue);color:var(--white);
+  border:none;border-radius:var(--r-sm);font-size:13px;
+  font-weight:700;cursor:pointer;align-self:flex-end;
+  transition:all .2s;min-width:72px
+}
+.send-btn:hover{background:var(--blue-d)}
+.send-btn:disabled{background:var(--ink4);cursor:not-allowed}
+
+/* ─────────────────────────────────────────────────────
+   报告页
+───────────────────────────────────────────────────── */
+.report-hero{
+  background:linear-gradient(135deg,var(--blue),var(--blue-d));
+  color:var(--white);border-radius:var(--r);
+  padding:28px;margin-bottom:16px;
+  display:flex;align-items:center;gap:28px;flex-wrap:wrap
+}
+.rh-score{text-align:center}
+.rh-score .score-num{font-size:64px;font-weight:800;line-height:1}
+.rh-score .score-sub{font-size:13px;opacity:.75;margin-top:4px}
+.rh-score .score-grade{font-size:18px;font-weight:700;margin-top:6px}
+.rh-info{flex:1}
+.rh-info h2{font-size:20px;font-weight:700;margin-bottom:6px}
+.rh-info p{font-size:13px;opacity:.8}
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+/* 维度得分卡 */
+.dim-score-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap
+}
+.dsi-name{min-width:130px;font-weight:600;font-size:13px}
+.dsi-weight{font-size:11px;color:var(--ink4);min-width:40px}
+.dsi-score{font-size:22px;font-weight:800;min-width:55px}
+.dsi-track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;min-width:60px}
+.dsi-fill{height:100%;border-radius:4px}
+.dsi-grade{min-width:32px;font-size:12px;font-weight:700}
+.dsi-formula{font-size:11px;color:var(--ink3)}
+/* 最终报告正文（格式化） */
+.report-body{line-height:1.9;font-size:13px;color:var(--ink2)}
+.report-body .rpt-h{
+  font-size:15px;font-weight:700;color:var(--blue);
+  margin:20px 0 8px;padding-bottom:6px;
+  border-bottom:2px solid var(--blue-l)
+}
+.report-body .rpt-bullet{
+  padding:6px 12px;margin:4px 0;
+  background:var(--bg);border-radius:var(--r-sm);
+  border-left:3px solid var(--blue)
+}
+.report-body .rpt-sub{
+  padding:4px 0 4px 20px;color:var(--ink3);font-size:12px
+}
+.report-body .rpt-decision{
+  padding:12px 16px;border-radius:var(--r-sm);
+  font-weight:700;font-size:14px;margin:8px 0
+}
+.rpt-decision.good{background:var(--green-l);color:#166534}
+.rpt-decision.ok{background:var(--blue-l);color:var(--blue-d)}
+.rpt-decision.warn{background:var(--amber-l);color:#92400e}
+.rpt-decision.bad{background:var(--red-l);color:#991b1b}
+.report-body .rpt-formula{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:12px 16px;
+  margin:8px 0;font-size:12px;color:var(--ink3)
+}
+
+/* ─────────────────────────────────────────────────────
+   加载 / Toast / Modal
+───────────────────────────────────────────────────── */
+.loading-overlay{
+  position:fixed;inset:0;background:rgba(255,255,255,.88);
+  display:none;align-items:center;justify-content:center;
+  z-index:1000;flex-direction:column;gap:14px
+}
+.loading-overlay.show{display:flex}
+.spinner{
+  width:44px;height:44px;border:3.5px solid var(--border);
+  border-top-color:var(--blue);border-radius:50%;
+  animation:spin .75s linear infinite
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;font-weight:600;color:var(--ink3)}
+.toast-wrap{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{
+  padding:10px 16px;border-radius:var(--r-sm);font-size:12px;
+  font-weight:600;box-shadow:var(--shadow-lg);
+  animation:toastIn .25s ease;max-width:300px;color:var(--white)
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+.toast-ok{background:var(--green)}
+.toast-err{background:var(--red)}
+.toast-info{background:var(--blue)}
+/* Modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:900;display:none;align-items:center;justify-content:center
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--white);border-radius:var(--r);
+  padding:28px;width:460px;max-width:90vw;
+  box-shadow:var(--shadow-lg)
+}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px;color:var(--ink)}
+.modal-btns{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+
+/* ─────────────────────────────────────────────────────
+   响应式
+───────────────────────────────────────────────────── */
+@media(max-width:780px){
+  .sidebar{width:200px;min-width:200px}
+  .ph,.pb{padding-left:14px;padding-right:14px}
+  .chat-msgs,.chat-input-area,.chat-topbar{padding-left:12px;padding-right:12px}
+  .settings-grid{grid-template-columns:1fr}
+  .report-hero{flex-direction:column;text-align:center}
+}
+@media(max-width:560px){
+  .sidebar{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">正在处理，请稍候…</div>
+</div>
+
+<!-- Toast -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 退出面试 Modal -->
+<div class="modal-overlay" id="exitModal">
+  <div class="modal-box">
+    <div class="modal-title">确认退出面试</div>
+    <p style="color:var(--ink3);font-size:13px;line-height:1.7">
+      退出后当前面试进度将<strong>不会保留</strong>，如需开始一场新面试请点击「确认退出」。
+    </p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeExitModal()">取消</button>
+      <button class="btn btn-danger" onclick="confirmExit()">确认退出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新面试 Modal（含设置） -->
+<div class="modal-overlay" id="newModal">
+  <div class="modal-box" style="width:520px">
+    <div class="modal-title">⚙️ 开始新一场面试</div>
+    <div id="newModalSettings"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeNewModal()">取消</button>
+      <button class="btn btn-primary" onclick="startNewInterview()">开始 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 主布局 -->
+<div class="layout">
+
+  <!-- ====== 侧边栏 ====== -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-row">
+        <div class="sb-logo-icon">🎯</div>
+        <div>
+          <div class="sb-logo-text">睿聘智模</div>
+          <div class="sb-logo-sub">AI 智能面试系统 v3.1</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-session-info" id="sbSessionInfo">
+      模式：<span id="sbMode">—</span> &nbsp;·&nbsp;
+      时长：<span id="sbDuration">—</span>min
+    </div>
+    <nav class="sb-steps">
+      <div class="step-item disabled" id="nav1" onclick="tryGoto(1)">
+        <div class="step-dot">1</div>
+        <div class="step-info"><div class="step-title">面试设置</div><div class="step-sub">模式·时长·追问</div></div>
+      </div>
+      <div class="step-item disabled" id="nav2" onclick="tryGoto(2)">
+        <div class="step-dot">2</div>
+        <div class="step-info"><div class="step-title">岗位 JD</div><div class="step-sub">粘贴职位描述</div></div>
+      </div>
+      <div class="step-item disabled" id="nav3" onclick="tryGoto(3)">
+        <div class="step-dot">3</div>
+        <div class="step-info"><div class="step-title">候选人简历</div><div class="step-sub">文本·PDF·Word·图片</div></div>
+      </div>
+      <div class="step-item disabled" id="nav4" onclick="tryGoto(4)">
+        <div class="step-dot">4</div>
+        <div class="step-info"><div class="step-title">AI 分析</div><div class="step-sub">匹配·权重·题库</div></div>
+      </div>
+      <div class="step-item disabled" id="nav5" onclick="tryGoto(5)">
+        <div class="step-dot">5</div>
+        <div class="step-info"><div class="step-title">正式面试</div><div class="step-sub">五维深度评估</div></div>
+      </div>
+      <div class="step-item disabled" id="nav6" onclick="tryGoto(6)">
+        <div class="step-dot">6</div>
+        <div class="step-info"><div class="step-title">评估报告</div><div class="step-sub">综合分析·培养方案</div></div>
+      </div>
+    </nav>
+    <div class="sb-progress" id="sbProgress" style="display:none">
+      <div class="sb-progress-label">面试进度 <span id="sbProgText">0/0</span></div>
+      <div class="pbar"><div class="pbar-fill" id="sbProgFill" style="width:0%"></div></div>
+    </div>
+    <div class="sb-actions">
+      <button class="sb-btn-new" onclick="openNewModal()">＋ 新面试</button>
+      <button class="sb-btn-exit" id="btnExitInterview" style="display:none" onclick="openExitModal()">✕ 退出面试</button>
+    </div>
+  </aside>
+
+  <!-- ====== 主内容 ====== -->
+  <main class="main">
+
+    <!-- ── Step 1: 面试设置 ── -->
+    <div class="panel" id="panel1">
+      <div class="ph"><h2>⚙️ 面试参数设置</h2><p>在开始前配置面试模式、时长和追问策略，也可以使用默认设置直接开始</p></div>
+      <div class="pb">
+        <div class="card">
+          <div class="card-h"><span class="card-icon">🎭</span><h3>面试模式</h3></div>
+          <div class="card-b">
+            <div class="settings-grid" id="modeGrid"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="card-icon">⏱️</span><h3>面试参数</h3></div>
+          <div class="card-b">
+            <div class="select-row">
+              <label>面试时长</label>
+              <select class="select" id="settingDuration">
+                <option value="30">30 分钟（约5-7题）</option>
+                <option value="45">45 分钟（约7-9题）</option>
+                <option value="60" selected>60 分钟（约9-12题）</option>
+                <option value="90">90 分钟（约12-15题）</option>
+                <option value="120">120 分钟（约15-18题）</option>
+              </select>
+            </div>
+            <div class="select-row">
+              <label>最多追问</label>
+              <select class="select" id="settingFollowup">
+                <option value="1">每题最多 1 轮追问</option>
+                <option value="2" selected>每题最多 2 轮追问（推荐）</option>
+                <option value="3">每题最多 3 轮追问（深度挖掘）</option>
+                <option value="4">每题最多 4 轮追问（压力测试）</option>
+              </select>
+            </div>
+            <div class="select-row">
+              <label>追问触发</label>
+              <select class="select" id="settingThreshold">
+                <option value="55">宽松（得分＜55 时追问）</option>
+                <option value="65" selected>标准（得分＜65 时追问）</option>
+                <option value="75">严格（得分＜75 时追问）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveSettingsAndNext()">保存设置，下一步 →</button>
+          <button class="btn btn-ghost btn-sm" onclick="useDefaultSettings()">使用默认设置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 2: 岗位 JD ── -->
+    <div class="panel" id="panel2">
+      <div class="ph"><h2>📋 输入岗位职位描述（JD）</h2><p>请完整粘贴岗位JD，内容越详细，AI生成的面试方案越精准</p></div>
+      <div class="pb">
+        <div class="card">
+          <div class="card-b">
+            <div class="info-bar">💡 建议粘贴包含岗位职责、任职要求、团队规模、汇报关系的完整JD，以便AI准确识别岗位特性并动态分配五维权重。</div>
+            <div class="field">
+              <label>岗位职位描述</label>
+              <textarea class="textarea" id="jdInput" style="min-height:260px"
+                placeholder="请在此粘贴完整的岗位JD…&#10;&#10;示例：&#10;【岗位名称】高级算法工程师&#10;【职位职责】负责推荐系统算法研发与优化…&#10;【任职要求】5年以上推荐算法经验…"
+                oninput="updateCount('jdInput','jdCount')"></textarea>
+              <div class="char-count" id="jdCount">0 字</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost btn-sm" onclick="gotoPanel(1)">← 返回设置</button>
+              <button class="btn btn-primary" onclick="submitJD()">下一步：上传简历 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 3: 候选人简历 ── -->
+    <div class="panel" id="panel3">
+      <div class="ph"><h2>📄 上传候选人简历</h2><p>支持文本粘贴，或上传 PDF、Word（.docx）、图片（JPG/PNG）格式</p></div>
+      <div class="pb">
+        <div class="card">
+          <div class="card-b">
+            <div class="tab-bar">
+              <button class="tab-btn active" onclick="switchTab('text')">📝 文本粘贴</button>
+              <button class="tab-btn" onclick="switchTab('file')">📁 文件上传</button>
+            </div>
+            <!-- 文本 -->
+            <div id="tab-text">
+              <div class="field">
+                <label>候选人简历内容</label>
+                <textarea class="textarea" id="resumeTextInput" style="min-height:280px"
+                  placeholder="请粘贴候选人简历…&#10;&#10;包括：基本信息、教育背景、工作经历、项目经验、技能特长等"
+                  oninput="updateCount('resumeTextInput','resumeCount')"></textarea>
+                <div class="char-count" id="resumeCount">0 字</div>
+              </div>
+            </div>
+            <!-- 文件 -->
+            <div id="tab-file" style="display:none">
+              <div class="drop-zone" id="dropZone"
+                   onclick="document.getElementById('fileInput').click()"
+                   ondragover="doDragOver(event)" ondragleave="doDragLeave(event)" ondrop="doDrop(event)">
+                <div class="drop-icon">📎</div>
+                <div class="drop-text">点击上传或拖拽文件到此处</div>
+                <div class="drop-hint">支持 PDF · Word(.docx) · 图片(JPG/PNG) · 纯文本(.txt) · 最大20MB</div>
+              </div>
+              <input type="file" id="fileInput" style="display:none"
+                     accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp,.bmp"
+                     onchange="onFileSelect(event)">
+              <div class="file-badge" id="fileBadge" style="display:none">
+                <div class="fb-icon" id="fbIcon">📄</div>
+                <div class="fb-info">
+                  <div class="fb-name" id="fbName"></div>
+                  <div class="fb-size" id="fbSize"></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="clearFile()">移除</button>
+              </div>
+              <div class="parse-preview" id="parsePreview" style="display:none"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost btn-sm" onclick="gotoPanel(2)">← 返回</button>
+              <button class="btn btn-primary" onclick="submitResume()">下一步：AI 分析 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 4: AI 分析 ── -->
+    <div class="panel" id="panel4">
+      <div class="ph"><h2>🔍 AI 分析结果</h2><p>基于JD与简历，系统完成了岗位识别、五维权重动态生成与面试方案构建</p></div>
+      <div class="pb">
+        <!-- 匹配分析 -->
+        <div class="card">
+          <div class="card-h"><span class="card-icon">📊</span><h3>简历 × JD 匹配度分析</h3></div>
+          <div class="card-b">
+            <div class="match-row">
+              <div class="match-track"><div class="match-fill" id="matchFill" style="width:0%"></div></div>
+              <div class="match-pct" id="matchPct">0%</div>
+            </div>
+            <p id="matchAnalysis" style="font-size:12px;color:var(--ink3);margin-top:8px;line-height:1.7"></p>
+            <div class="tag-list" id="hlTags"></div>
+            <div class="tag-list" id="gapTags" style="margin-top:4px"></div>
+          </div>
+        </div>
+        <!-- 权重分配 -->
+        <div class="card">
+          <div class="card-h"><span class="card-icon">⚖️</span><h3>五维能力权重（LLM 根据岗位特性独立生成）</h3></div>
+          <div class="card-b">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+              <span style="font-size:13px">岗位类型：<strong id="posType">—</strong></span>
+              <span style="font-size:13px">资历层级：<strong id="posLevel">—</strong></span>
+              <span style="font-size:13px">总题目数：<strong id="totalQ">—</strong></span>
+            </div>
+            <div class="tag-list" id="compTags"></div>
+            <div class="dim-grid" id="dimGrid"></div>
+          </div>
+        </div>
+        <!-- 面试策略 -->
+        <div class="card">
+          <div class="card-h"><span class="card-icon">🗺️</span><h3>面试策略 · 题库概览</h3></div>
+          <div class="card-b">
+            <p id="strategyText" style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:12px"></p>
+            <div id="dimList"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost btn-sm" onclick="gotoPanel(3)">← 返回简历</button>
+          <button class="btn btn-primary" onclick="beginInterview()">🎙 开始正式面试 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 5: 面试对话 ── -->
+    <div class="panel" id="panel5" style="padding:0">
+      <div class="chat-layout">
+        <div class="chat-topbar">
+          <div>
+            <div class="ctb-dim" id="ctbDim">—</div>
+            <div class="ctb-prog" id="ctbProg">准备中…</div>
+          </div>
+          <div class="dim-badge" id="dimBadge">—</div>
+          <div class="chat-nav-btns">
+            <button class="btn btn-ghost btn-sm" onclick="gotoPanel(2)" title="查看JD">📋 JD</button>
+            <button class="btn btn-ghost btn-sm" onclick="gotoPanel(3)" title="查看简历">📄 简历</button>
+            <button class="btn btn-ghost btn-sm" onclick="gotoPanel(4)" title="查看分析">🔍 分析</button>
+            <button class="btn btn-danger btn-sm" onclick="openExitModal()">✕ 退出</button>
+          </div>
+        </div>
+        <div class="chat-msgs" id="chatMsgs"></div>
+        <div class="chat-input-area">
+          <div class="input-hint" id="inputHint">请输入您的回答（Ctrl+Enter 发送）</div>
+          <div class="input-row">
+            <textarea class="chat-ta" id="answerInput"
+              placeholder="请在此输入您的回答…&#10;支持多行输入，详细描述您的经历和思考过程"
+              onkeydown="onAnsKey(event)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendAnswer()">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Step 6: 评估报告 ── -->
+    <div class="panel" id="panel6">
+      <div class="ph"><h2>📋 面试综合评估报告</h2><p>基于全程面试评估数据，包含完整能力画像与公司培养路线</p></div>
+      <div class="pb">
+        <!-- 返回查看面试记录 -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-ghost btn-sm" onclick="gotoPanel(4)">← 查看AI分析</button>
+          <button class="btn btn-ghost btn-sm" onclick="gotoPanel(5)">← 查看面试对话</button>
+          <button class="btn btn-ghost btn-sm" onclick="openNewModal()">＋ 开始新面试</button>
+        </div>
+        <!-- Hero -->
+        <div class="report-hero" id="reportHero">
+          <div class="rh-score">
+            <div class="score-num" id="rScore">—</div>
+            <div class="score-sub">/ 100 加权综合得分</div>
+            <div class="score-grade" id="rGrade">—</div>
+          </div>
+          <div class="rh-info">
+            <h2 id="rPosition">面试评估报告</h2>
+            <p id="rMeta">正在生成报告，请稍候…</p>
+          </div>
+        </div>
+        <!-- 导出按钮 -->
+        <div class="export-row">
+          <button class="btn btn-success" onclick="exportReport('pdf')">⬇️ 导出完整 PDF</button>
+          <button class="btn btn-outline" onclick="exportReport('html')">🌐 导出 HTML</button>
+          <button class="btn btn-outline" onclick="exportReport('docx')">📝 导出 Word</button>
+          <button class="btn btn-ghost" onclick="window.print()">🖨️ 打印</button>
+        </div>
+        <!-- 维度得分卡 -->
+        <div class="card">
+          <div class="card-h"><span class="card-icon">⚖️</span>
+            <h3>各维度评分明细</h3>
+            <span style="font-size:11px;color:var(--ink4);margin-left:8px">
+              评分公式：各维度先求多题平均，再按权重加权求和
+            </span>
+          </div>
+          <div class="card-b">
+            <div class="report-body" style="margin-bottom:10px">
+              <div class="rpt-formula">
+                ✎ 正确计算逻辑：<br>
+                ① 每个维度若有 N 道题，先对 N 题的得分求平均值（维度平均分）<br>
+                ② 最终得分 = Σ（各维度平均分 × 对应权重），权重之和=1.0，结果严格在 0-100 区间
+              </div>
+            </div>
+            <div id="dimScoreList"></div>
+          </div>
+        </div>
+        <!-- 正文 -->
+        <div class="card">
+          <div class="card-h"><span class="card-icon">📄</span><h3>最终综合评估报告正文</h3></div>
+          <div class="card-b">
+            <div class="report-body" id="reportBody">正在生成报告内容，请稍候…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============= JS ============= -->
+<script>
+const API = '';
+let sid = null;
+let step = 1;
+let maxStep = 1;
+let isFollowup = false;
+let waitingAnswer = false;
+let totalQ = 0;
+let currentQNum = 0;
+let resumeInputMode = 'text';
+let pendingFile = null;
+let systemConfig = {};
+let userSettings = {};
+
+/* ─── 初始化 ─── */
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  renderModeGrid();
+  renderSettingsForm(document.getElementById('modeGrid').parentElement.parentElement.parentElement);
+  await createSession({});
+  gotoPanel(1);
+});
+
+async function loadConfig() {
+  try {
+    const r = await fetch(`${API}/api/config`);
+    systemConfig = await r.json();
+    document.getElementById('sbMode').textContent = systemConfig.available_modes?.[systemConfig.default_mode]?.name || '—';
+    document.getElementById('sbDuration').textContent = systemConfig.default_duration || '—';
+  } catch(e) {}
+}
+
+async function createSession(settings) {
+  try {
+    const r = await apiFetch('/api/session/create', {settings});
+    if (r.ok) {
+      sid = r.session_id;
+      userSettings = settings;
+    } else {
+      showToast('会话创建失败，请刷新页面', 'err');
+    }
+  } catch(e) {
+    showToast('无法连接后端服务器，请确认 app.py 已运行', 'err');
+  }
+}
+
+/* ─── 设置页 ─── */
+function renderModeGrid() {
+  const modes = systemConfig.available_modes || {
+    standard:{name:'标准专业',description:'专业平衡，循序渐进'},
+    casual:{name:'轻松交流',description:'友好开放，降低紧张感'},
+    stress:{name:'压力测试',description:'挑战性追问，测试逆境清晰度'},
+    behavioral:{name:'行为事件 BEI',description:'严格STAR，聚焦过去行为'},
+  };
+  const selectedMode = userSettings.interview_mode || systemConfig.default_mode || 'standard';
+  const grid = document.getElementById('modeGrid');
+  grid.innerHTML = Object.entries(modes).map(([k,v]) =>
+    `<div class="setting-card ${k===selectedMode?'selected':''}" data-mode="${k}" onclick="selectMode('${k}')">
+      <div class="sc-title">${v.name}</div>
+      <div class="sc-desc">${v.description||''}</div>
+    </div>`
+  ).join('');
+}
+
+function selectMode(k) {
+  document.querySelectorAll('.setting-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.mode === k);
+  });
+}
+
+function getSelectedMode() {
+  const sel = document.querySelector('.setting-card.selected');
+  return sel ? sel.dataset.mode : 'standard';
+}
+
+function buildSettings() {
+  return {
+    interview_mode:         getSelectedMode(),
+    duration_minutes:       parseInt(document.getElementById('settingDuration').value),
+    max_followup_rounds:    parseInt(document.getElementById('settingFollowup').value),
+    depth_score_threshold:  parseInt(document.getElementById('settingThreshold').value),
+  };
+}
+
+async function saveSettingsAndNext() {
+  const settings = buildSettings();
+  showLoading('保存设置，初始化会话…');
+  if (sid) { // 重建 session 以更新设置
+    try {
+      const r = await apiFetch('/api/session/reset', {session_id: sid, settings});
+      if (r.ok) { sid = r.session_id; userSettings = settings; }
+    } catch(e) {}
+  } else {
+    await createSession(settings);
+  }
+  hideLoading();
+  updateSbMeta(settings);
+  unlockStep(2);
+  gotoPanel(2);
+}
+
+async function useDefaultSettings() {
+  const settings = {};
+  showLoading('使用默认设置…');
+  if (sid) {
+    try {
+      const r = await apiFetch('/api/session/reset', {session_id: sid, settings});
+      if (r.ok) { sid = r.session_id; userSettings = settings; }
+    } catch(e) {}
+  }
+  hideLoading();
+  unlockStep(2);
+  gotoPanel(2);
+}
+
+function updateSbMeta(settings) {
+  const modes = systemConfig.available_modes || {};
+  const mkey  = settings.interview_mode || 'standard';
+  document.getElementById('sbMode').textContent = modes[mkey]?.name || mkey;
+  document.getElementById('sbDuration').textContent = settings.duration_minutes || '60';
+}
+
+/* ─── 面板导航 ─── */
+function gotoPanel(n) {
+  document.querySelectorAll('.panel').forEach((p,i)=>{
+    p.classList.toggle('active', i+1===n);
+  });
+  for(let i=1;i<=6;i++){
+    const nav = document.getElementById(`nav${i}`);
+    if (!nav) continue;
+    nav.classList.remove('active','done','disabled');
+    if (i < n && i <= maxStep)     nav.classList.add('done');
+    else if (i === n)              nav.classList.add('active');
+    else if (i <= maxStep)         nav.classList.add('done');
+    else                           nav.classList.add('disabled');
+  }
+  step = n;
+  document.getElementById('sbProgress').style.display = (n===5) ? '' : 'none';
+  document.getElementById('btnExitInterview').style.display = (n===5) ? '' : 'none';
+}
+
+function unlockStep(n) {
+  if (n > maxStep) maxStep = n;
+}
+
+function tryGoto(n) {
+  if (n <= maxStep) gotoPanel(n);
+  else showToast('请按步骤完成前置操作', 'info');
+}
+
+/* ─── Step 2: JD ─── */
+async function submitJD() {
+  const jd = document.getElementById('jdInput').value.trim();
+  if (!jd) { showToast('请输入JD内容', 'err'); return; }
+  showLoading('保存JD…');
+  const r = await apiFetch('/api/jd', {session_id: sid, jd});
+  hideLoading();
+  if (r.ok) {
+    unlockStep(3);
+    gotoPanel(3);
+    showToast(`JD已保存（${r.length}字）`, 'ok');
+  } else showToast(r.error||'保存失败','err');
+}
+
+/* ─── Step 3: 简历 ─── */
+function switchTab(mode) {
+  resumeInputMode = mode;
+  document.getElementById('tab-text').style.display = mode==='text' ? '' : 'none';
+  document.getElementById('tab-file').style.display = mode==='file' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', (i===0&&mode==='text')||(i===1&&mode==='file'));
+  });
+}
+
+function doDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('dragover')}
+function doDragLeave(e){document.getElementById('dropZone').classList.remove('dragover')}
+function doDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('dragover');
+  const f=e.dataTransfer.files[0];
+  if(f) setFile(f);
+}
+function onFileSelect(e){const f=e.target.files[0]; if(f) setFile(f);}
+function clearFile(){
+  pendingFile=null;
+  document.getElementById('fileInput').value='';
+  document.getElementById('fileBadge').style.display='none';
+  document.getElementById('parsePreview').style.display='none';
+}
+const FILE_ICONS={pdf:'📕',docx:'📘',doc:'📘',txt:'📄',png:'🖼️',jpg:'🖼️',jpeg:'🖼️',gif:'🖼️',webp:'🖼️',bmp:'🖼️'};
+function setFile(f){
+  pendingFile=f;
+  const ext=f.name.split('.').pop().toLowerCase();
+  document.getElementById('fbIcon').textContent=FILE_ICONS[ext]||'📄';
+  document.getElementById('fbName').textContent=f.name;
+  document.getElementById('fbSize').textContent=(f.size/1024/1024).toFixed(2)+' MB';
+  document.getElementById('fileBadge').style.display='flex';
+}
+
+async function submitResume() {
+  if (resumeInputMode==='text') {
+    const txt=document.getElementById('resumeTextInput').value.trim();
+    if(!txt){showToast('请输入简历内容','err');return;}
+    showLoading('保存简历…');
+    const r=await apiFetch('/api/resume/text',{session_id:sid,resume:txt});
+    hideLoading();
+    if(r.ok){await runAnalysis();}
+    else showToast(r.error||'保存失败','err');
+  } else {
+    if(!pendingFile){showToast('请先选择文件','err');return;}
+    showLoading('解析文件（图片/PDF可能需要30-60秒）…');
+    const fd=new FormData();
+    fd.append('file',pendingFile);
+    fd.append('session_id',sid);
+    const resp=await fetch(`${API}/api/resume/file`,{method:'POST',body:fd});
+    const r=await resp.json();
+    hideLoading();
+    if(r.ok){
+      document.getElementById('parsePreview').textContent=r.preview||'';
+      document.getElementById('parsePreview').style.display='';
+      showToast(`文件解析成功（${r.length}字）`,'ok');
+      await runAnalysis();
+    } else showToast(r.error||'解析失败','err');
+  }
+}
+
+/* ─── Step 4: AI 分析 ─── */
+async function runAnalysis() {
+  unlockStep(4);
+  gotoPanel(4);
+  showLoading('AI 深度分析中，约30-60秒…');
+  const r=await apiFetch('/api/analyze',{session_id:sid});
+  hideLoading();
+  if(!r.ok){showToast(r.error||'分析失败','err');gotoPanel(3);return;}
+  renderAnalysis(r);
+  showToast('分析完成','ok');
+}
+
+function renderAnalysis(d) {
+  const pct=Math.round((d.plan?.match_score||0)*100);
+  document.getElementById('matchFill').style.width=pct+'%';
+  document.getElementById('matchPct').textContent=pct+'%';
+  document.getElementById('matchAnalysis').textContent=d.plan?.match_analysis||'';
+
+  document.getElementById('hlTags').innerHTML=
+    (d.plan?.candidate_highlights||[]).map(h=>`<span class="tag tag-blue">✦ ${h}</span>`).join('');
+  document.getElementById('gapTags').innerHTML=
+    (d.plan?.candidate_gaps||[]).map(g=>`<span class="tag tag-amber">△ ${g}</span>`).join('');
+
+  document.getElementById('posType').textContent=d.position_type||'—';
+  document.getElementById('posLevel').textContent=d.seniority||'—';
+  totalQ=d.total_questions||0;
+  document.getElementById('totalQ').textContent=totalQ+' 道';
+
+  document.getElementById('compTags').innerHTML=
+    (d.key_competencies||[]).map(c=>`<span class="tag tag-green">${c}</span>`).join('');
+
+  const dg=document.getElementById('dimGrid');
+  dg.innerHTML='';
+  const alloc=d.q_allocation||{};
+  Object.entries(d.weights||{}).forEach(([k,v],i)=>{
+    const pct=Math.round(v*100);
+    const qcnt=alloc[`D${i+1}`]||1;
+    dg.innerHTML+=`
+      <div class="dim-tile">
+        <div class="dt-name">${k}</div>
+        <div class="dt-weight">${pct}%</div>
+        <div class="dt-bar"><div class="dt-fill" style="width:${pct}%"></div></div>
+        <div class="dt-q">${qcnt} 道题</div>
+      </div>`;
+  });
+
+  document.getElementById('strategyText').textContent=d.plan?.interview_strategy||'';
+  const dl=document.getElementById('dimList');
+  dl.innerHTML=(d.plan?.dimensions||[]).map(d=>
+    `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span class="tag tag-blue" style="flex-shrink:0">D${d.id}</span>
+      <span style="font-weight:600;font-size:13px">${d.name}</span>
+      <span style="font-size:11px;color:var(--ink4)">权重${Math.round(d.weight*100)}% · ${d.q_count}道题</span>
+    </div>`).join('');
+}
+
+/* ─── Step 5: 面试 ─── */
+async function beginInterview() {
+  unlockStep(5);
+  gotoPanel(5);
+  document.getElementById('chatMsgs').innerHTML='';
+  isFollowup=false;waitingAnswer=false;currentQNum=0;
+  document.getElementById('btnExitInterview').style.display='';
+  await fetchQuestion();
+}
+
+async function fetchQuestion() {
+  showLoading('面试官正在组织问题…');
+  const r=await apiFetch('/api/interview/question',{session_id:sid});
+  hideLoading();
+  if(!r.ok){showToast(r.error||'获取问题失败','err');return;}
+  if(r.done){await finishAll();return;}
+
+  currentQNum=r.progress?.current||currentQNum+1;
+  const total=r.progress?.total||totalQ;
+  updateProgress(currentQNum,total);
+  document.getElementById('ctbDim').textContent=r.dimension||'—';
+  document.getElementById('ctbProg').textContent=`${r.dimension||''}·权重${Math.round((r.dim_weight||0)*100)}%`;
+  document.getElementById('dimBadge').textContent=`Q${currentQNum}/${total}`;
+  addMsg('i', r.text);
+  isFollowup=false;waitingAnswer=true;
+  document.getElementById('sendBtn').disabled=false;
+  document.getElementById('inputHint').textContent='请输入您的回答（支持多行，Ctrl+Enter 发送）';
+}
+
+function onAnsKey(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();sendAnswer();}
+}
+
+async function sendAnswer() {
+  if(!waitingAnswer) return;
+  const ans=document.getElementById('answerInput').value.trim();
+  if(!ans){showToast('请输入回答','err');return;}
+  document.getElementById('sendBtn').disabled=true;
+  waitingAnswer=false;
+  addMsg('c',ans);
+  document.getElementById('answerInput').value='';
+
+  showLoading('AI 深度评估中…');
+  const r=await apiFetch('/api/interview/answer',{session_id:sid,answer:ans,is_followup:isFollowup});
+  hideLoading();
+  if(!r.ok){showToast(r.error||'评估失败','err');waitingAnswer=true;document.getElementById('sendBtn').disabled=false;return;}
+
+  if(r.evaluation) addEvalCard(r.evaluation, r.question_report);
+
+  if(r.action==='followup'){
+    addMsg('i',r.followup_text);
+    isFollowup=true;waitingAnswer=true;
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('inputHint').textContent='💬 追问环节：请补充说明（Ctrl+Enter 发送）';
+  } else if(r.action==='next_question'){
+    isFollowup=false;
+    await fetchQuestion();
+  } else if(r.action==='complete'){
+    await finishAll();
+  }
+}
+
+async function finishAll() {
+  addSysMsg('✅ 所有问题已完成，正在生成综合评估报告（约30-60秒）…');
+  unlockStep(6);
+  gotoPanel(6);
+  document.getElementById('btnExitInterview').style.display='none';
+  showLoading('生成综合评估报告中…');
+  const r=await apiFetch('/api/interview/final',{session_id:sid});
+  hideLoading();
+  if(!r.ok){showToast(r.error||'报告生成失败','err');return;}
+  renderFinalReport(r);
+}
+
+/* ─── 渲染评估卡片 ─── */
+function addEvalCard(ev, qReport) {
+  const star=ev.star_summary||{};
+  let starHtml='<div class="star-rows">';
+  ['Situation','Task','Action','Result'].forEach(k=>{
+    const s=star[k]||{};
+    const q=s.quality_pct||0;
+    const cls=q>=65?'star-hi':(q>=40?'star-mi':'star-lo');
+    const icon=s.present?'✓':'✗';
+    starHtml+=`<div class="star-row">
+      <div class="star-lbl">${k}</div>
+      <div class="star-icon" style="color:${q>=65?'var(--green)':(q>=40?'var(--amber)':'var(--red)')}">${icon}</div>
+      <div class="star-track"><div class="star-fill-bar ${cls}" style="width:${q}%"></div></div>
+      <div class="star-pct-lbl">${q}%</div>
+    </div>`;
+  });
+  starHtml+='</div>';
+
+  const scoreColor = s => s>=70?'var(--green)':(s>=55?'var(--amber)':'var(--red)');
+  const ds=ev.depth_score||0, ss=ev.star_completeness||0, dms=ev.dimension_score||0;
+
+  const rid='r_'+Date.now();
+  const div=document.createElement('div');
+  div.className='msg msg-sys';
+  div.innerHTML=`
+    <div class="eval-card">
+      <div class="eval-card-title">📊 本题评估</div>
+      ${starHtml}
+      <div class="score-chips">
+        <div class="score-chip"><div class="scv" style="color:${scoreColor(ds)}">${ds}</div><div class="sct">/100</div><div class="scl">回答深度</div></div>
+        <div class="score-chip"><div class="scv" style="color:${scoreColor(ss)}">${ss}</div><div class="sct">/100</div><div class="scl">STAR完整度</div></div>
+        <div class="score-chip"><div class="scv" style="color:${scoreColor(dms)}">${dms}</div><div class="sct">/100</div><div class="scl">维度综合分</div></div>
+      </div>
+      ${ev.key_insights?.length?`<div class="insights-block">${ev.key_insights.map(i=>`<div class="insight-line">💡 ${i}</div>`).join('')}</div>`:''}
+      ${ev.concerns?.length?`<div class="insights-block">${ev.concerns.map(c=>`<div class="concern-line">⚑ ${c}</div>`).join('')}</div>`:''}
+      ${ev.raw_assessment?`<div style="margin-top:6px;font-size:11px;color:var(--ink4)">${ev.raw_assessment}</div>`:''}
+      ${qReport?`<div class="report-toggle" onclick="toggleReport('${rid}')">▶ 查看本题深度分析</div><div class="report-box" id="${rid}">${qReport}</div>`:''}
+    </div>`;
+  document.getElementById('chatMsgs').appendChild(div);
+  scrollChat();
+}
+
+function toggleReport(id){
+  const el=document.getElementById(id);
+  const tog=el.previousElementSibling;
+  const open=el.classList.toggle('open');
+  tog.textContent=(open?'▼ ':'▶ ')+'本题深度分析';
+}
+
+/* ─── 渲染最终报告 ─── */
+function renderFinalReport(d) {
+  const score=d.weighted_score||0;
+  document.getElementById('rScore').textContent=score.toFixed(1);
+  document.getElementById('rGrade').textContent=`${d.grade||'—'}级 — ${d.grade_desc||''}`;
+  document.getElementById('rPosition').textContent='面试综合评估报告';
+  document.getElementById('rMeta').textContent=`加权综合得分：${score.toFixed(1)}/100 · 综合等级：${d.grade||'—'}级`;
+
+  // 维度得分卡
+  const list=document.getElementById('dimScoreList');
+  list.innerHTML='';
+  const dimAvg=d.dim_averages||{};
+  const scoreColor=s=>s>=70?'var(--green)':(s>=55?'var(--amber)':'var(--red)');
+
+  // 按维度分组显示
+  const seenDims=new Set();
+  (d.evaluations||[]).forEach(ev=>{
+    const dn=ev.dimension_name||'';
+    if(seenDims.has(dn)) return;
+    seenDims.add(dn);
+    const avg=dimAvg[dn]||0;
+    const dw=(ev.dimension_weight||0);
+    const allScores=(d.evaluations||[]).filter(e=>e.dimension_name===dn)
+      .map(e=>e.evaluation?.dimension_score||0);
+    const contrib=(avg*dw).toFixed(2);
+    const col=scoreColor(avg);
+    list.innerHTML+=`
+      <div class="dim-score-item">
+        <div class="dsi-name">${dn}</div>
+        <div class="dsi-weight">权重${Math.round(dw*100)}%</div>
+        <div class="dsi-score" style="color:${col}">${avg.toFixed(1)}</div>
+        <div style="font-size:11px;color:var(--ink4);min-width:40px">/100</div>
+        <div class="dsi-track"><div class="dsi-fill" style="width:${avg}%;background:${col}"></div></div>
+        <div class="dsi-formula" style="font-size:11px;color:var(--ink4)">
+          [${allScores.join('+')}]÷${allScores.length}=${avg.toFixed(1)} ×${Math.round(dw*100)}%=${contrib}
+        </div>
+      </div>`;
+  });
+
+  // 最终报告正文格式化渲染
+  const body=document.getElementById('reportBody');
+  body.innerHTML='';
+  (d.report||'（报告生成中）').split('\n').forEach(line=>{
+    const s=line.trim();
+    if(!s){body.innerHTML+='<div style="height:6px"></div>';return;}
+    if(s.startsWith('【')&&s.includes('】')){
+      body.innerHTML+=`<div class="rpt-h">${s}</div>`;
+    } else if(s.startsWith('▸')){
+      body.innerHTML+=`<div class="rpt-bullet">${escHtml(s)}</div>`;
+    } else if(s.startsWith('—')){
+      body.innerHTML+=`<div class="rpt-sub">${escHtml(s)}</div>`;
+    } else if(s.includes('强烈推荐录用')){
+      body.innerHTML+=`<div class="rpt-decision good">✅ ${escHtml(s)}</div>`;
+    } else if(s.includes('推荐录用')&&!s.includes('不建议')){
+      body.innerHTML+=`<div class="rpt-decision ok">✓ ${escHtml(s)}</div>`;
+    } else if(s.includes('不建议录用')){
+      body.innerHTML+=`<div class="rpt-decision bad">✗ ${escHtml(s)}</div>`;
+    } else if(s.includes('补充面试')){
+      body.innerHTML+=`<div class="rpt-decision warn">◎ ${escHtml(s)}</div>`;
+    } else {
+      body.innerHTML+=`<p style="margin:5px 0;color:var(--ink2);line-height:1.8">${escHtml(s)}</p>`;
+    }
+  });
+}
+
+/* ─── 新面试 Modal ─── */
+function openNewModal() {
+  const container=document.getElementById('newModalSettings');
+  container.innerHTML=buildSettingsHTML();
+  document.getElementById('newModal').classList.add('show');
+}
+function closeNewModal(){document.getElementById('newModal').classList.remove('show')}
+
+function buildSettingsHTML() {
+  const modes=systemConfig.available_modes||{};
+  const cur=userSettings.interview_mode||'standard';
+  return `
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px">面试模式</div>
+      <div class="settings-grid" id="newModeGrid">
+        ${Object.entries(modes).map(([k,v])=>
+          `<div class="setting-card ${k===cur?'selected':''}" data-mode="${k}"
+                onclick="document.querySelectorAll('#newModeGrid .setting-card').forEach(c=>c.classList.remove('selected'));this.classList.add('selected')">
+            <div class="sc-title">${v.name}</div>
+            <div class="sc-desc">${v.description||''}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="select-row"><label>面试时长</label>
+      <select class="select" id="newSettingDuration">
+        <option value="30">30 分钟</option>
+        <option value="45">45 分钟</option>
+        <option value="60" selected>60 分钟</option>
+        <option value="90">90 分钟</option>
+        <option value="120">120 分钟</option>
+      </select></div>
+    <div class="select-row"><label>最多追问</label>
+      <select class="select" id="newSettingFollowup">
+        <option value="1">1 轮</option>
+        <option value="2" selected>2 轮（推荐）</option>
+        <option value="3">3 轮（深度）</option>
+        <option value="4">4 轮（压力）</option>
+      </select></div>`;
+}
+
+async function startNewInterview() {
+  const selMode=document.querySelector('#newModeGrid .setting-card.selected');
+  const settings={
+    interview_mode:   selMode?selMode.dataset.mode:'standard',
+    duration_minutes: parseInt(document.getElementById('newSettingDuration')?.value||60),
+    max_followup_rounds: parseInt(document.getElementById('newSettingFollowup')?.value||2),
+  };
+  closeNewModal();
+  showLoading('初始化新面试会话…');
+  const r=await apiFetch('/api/session/reset',{session_id:sid,settings});
+  hideLoading();
+  if(r.ok){
+    sid=r.session_id;
+    userSettings=settings;
+    maxStep=1;
+    // 清空UI
+    document.getElementById('jdInput').value='';
+    document.getElementById('resumeTextInput').value='';
+    clearFile();
+    document.getElementById('chatMsgs').innerHTML='';
+    updateSbMeta(settings);
+    unlockStep(1);
+    gotoPanel(1);
+    showToast('新面试已准备好','ok');
+  } else showToast(r.error||'初始化失败','err');
+}
+
+/* ─── 退出面试 ─── */
+function openExitModal(){document.getElementById('exitModal').classList.add('show')}
+function closeExitModal(){document.getElementById('exitModal').classList.remove('show')}
+async function confirmExit() {
+  closeExitModal();
+  openNewModal();
+}
+
+/* ─── 导出 ─── */
+async function exportReport(fmt) {
+  if(!sid){showToast('会话不存在','err');return;}
+  showToast(`正在生成 ${fmt.toUpperCase()} 文件，请稍候…`,'info');
+  window.location.href=`${API}/api/export/${fmt}?sid=${sid}`;
+}
+
+/* ─── 工具函数 ─── */
+function addMsg(role, text) {
+  const wrap=document.getElementById('chatMsgs');
+  const div=document.createElement('div');
+  div.className=`msg msg-${role==='i'?'i':'c'}`;
+  const label=role==='i'?`🎙 面试官（陈博文）`:'👤 候选人';
+  div.innerHTML=`<div class="msg-label">${label}</div><div class="msg-bubble">${escHtml(text)}</div>`;
+  wrap.appendChild(div);
+  scrollChat();
+}
+function addSysMsg(text){
+  const wrap=document.getElementById('chatMsgs');
+  const div=document.createElement('div');
+  div.className='msg msg-sys';
+  div.innerHTML=`<div style="text-align:center;padding:8px 14px;background:var(--bg);border-radius:20px;font-size:12px;color:var(--ink3);border:1px solid var(--border)">${escHtml(text)}</div>`;
+  wrap.appendChild(div);
+  scrollChat();
+}
+function scrollChat(){
+  const w=document.getElementById('chatMsgs');
+  w.scrollTop=w.scrollHeight;
+}
+function escHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+function updateCount(tid,cid){
+  document.getElementById(cid).textContent=document.getElementById(tid).value.length.toLocaleString()+' 字';
+}
+function updateProgress(cur,total){
+  const pct=total>0?Math.round(cur/total*100):0;
+  document.getElementById('sbProgFill').style.width=pct+'%';
+  document.getElementById('sbProgText').textContent=`${cur}/${total}`;
+}
+async function apiFetch(path,body){
+  const r=await fetch(`${API}${path}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  });
+  return await r.json();
+}
+function showLoading(text='处理中…'){
+  document.getElementById('loadingText').textContent=text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading(){document.getElementById('loadingOverlay').classList.remove('show')}
+function showToast(msg,type='info'){
+  const w=document.getElementById('toastWrap');
+  const d=document.createElement('div');
+  d.className=`toast toast-${type}`;d.textContent=msg;w.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .3s';},3000);
+  setTimeout(()=>d.remove(),3400);
+}
+
+// 初始化设置面板渲染
+function renderSettingsForm(){}  // 已由 renderModeGrid 覆盖
+</script>
+</body>
+</html>
